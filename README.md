@@ -1,110 +1,111 @@
-Projeto Keycloak com React + Flask
+Keycloak CRUD App
 
-Este projeto demonstra uma aplicação completa utilizando autenticação via Keycloak, com um frontend em React e backend em Flask. A autenticação é feita usando o protocolo OpenID Connect, e o controle de acesso é baseado em roles atribuídas no Keycloak.
+Este projeto é uma aplicação full-stack com autenticação e autorização utilizando o Keycloak. O front-end é feito em React, o back-end em Flask e os serviços são orquestrados via Docker Compose.
 
-Problema conhecido (audience token)
+⚠️ Aviso importante:
+O projeto ainda apresenta um problema com o campo aud (audience) do token JWT, que está vindo como "account" mesmo quando o client utilizado é frontend-client. Isso pode causar falha na validação do token no back-end. O campo azp é utilizado como alternativa temporária na verificação.
 
-O usuário é autenticado com sucesso e um token é gerado corretamente pelo Keycloak. No entanto:
+⚙️ Como configurar o ambiente
 
-O campo aud (audience) do token JWT vem como:
+1. Subindo os serviços
 
-"aud": "account"
-
-Mas o esperado seria:
-
-"aud": "frontend-client"
-
-Solução adotada:
-
-A validação do token no back-end foi adaptada para utilizar o campo azp (Authorized Party), que está correto:
-
-if payload.get("azp") != EXPECTED_CLIENT_ID:
-    return jsonify({'error': 'ClientId não autorizado'}), 403
-
-Como rodar o projeto
+Certifique-se de que você tem o Docker e Docker Compose instalados. Então:
 
 git clone https://github.com/Coelhom12/Keycloak.git
 cd Keycloak
 docker-compose up --build
 
-Acesse:
+2. Acessando o Keycloak
 
-Keycloak: http://localhost:8080
+Acesse http://localhost:8080
 
-Frontend: http://localhost:3000
-
-Backend (API): http://localhost:5000
-
-Configuração do Keycloak passo a passo
-
-1. Acesse o painel de administração
-
-URL: http://localhost:8080
+Login padrão:
 
 Usuário: admin
 
 Senha: admin
 
-2. Crie um Realm
+3. Configuração do Keycloak
+
+Criar Realm
+
+Vá em Master > Add realm
 
 Nome: demo
 
-3. Crie um Client
+Criar Client
 
-Nome: frontend-client
+Vá em Clients > Create
 
-Tipo: Public
+Client ID: frontend-client
 
-Habilite o fluxo Standard Flow
+Client type: Public
 
-Desabilite Direct Access Grants e Service Accounts
+Root URL: http://localhost:3000
 
-URI de redirecionamento: http://localhost:3000/*
+Salvar
 
-4. Crie um Usuário
+Ajustar Configurações do Client
 
-Nome de usuário: usuario
+Aba Settings:
 
-Senha: 123456
+Valid Redirect URIs: http://localhost:3000/*
 
-Marque como "Email verificado"
+Web Origins: *
 
-5. Crie Roles (funções)
+Habilitar Standard Flow Enabled
 
-No client frontend-client, crie as seguintes roles:
+Aba Credentials: (somente para clients confidenciais)
 
-get-role
+Criar Usuário
 
-post-role
+Vá em Users > Add User
 
-delete-role
+Username: usuario
 
-(essas roles serão usadas para controle de permissão no back-end)
+Email, Nome e Sobrenome opcionais
 
-6. Atribua as roles ao usuário
+Salvar
 
-No usuário usuario, vá em Role Mappings
+Aba Credentials
 
-Selecione Client Roles > frontend-client
+Criar uma senha (ex: 1234) e desmarcar Temporary
 
-Adicione as roles get-role, post-role, delete-role
+Criar Roles
 
-Estrutura
+Vá em Realm Roles > Add Role
 
-/frontend: React + Keycloak (login e CRUD com token)
+Role: get-role
 
-/backend: Flask + JWT + Verificação via Keycloak
+Role: post-role
 
-/docker-compose.yml: Sobe todos os serviços simultaneamente
+Role: delete-role
 
-Observações
+Atribuir Roles ao Usuário
 
-Certifique-se de que o client_id configurado no React (keycloak.js) seja igual ao client configurado no Keycloak.
+Vá em Users > selecione usuario
 
-O back-end espera o azp igual ao client_id para autenticar a requisição.
+Aba Role Mappings
 
-Caso deseje validar também roles, extraia-as do campo realm_access.roles no payload JWT.
+Em Available Realm Roles, selecione e adicione: get-role, post-role, delete-role
 
-Autor
+4. Testar a aplicação
 
-Gabriel Coelho - @Coelhom12
+Acesse http://localhost:3000
+
+Você será redirecionado para o login do Keycloak.
+
+Faça login com o usuário criado.
+
+Após autenticar, o CRUD estará disponível.
+
+📌 Problema conhecido
+
+O campo aud (audience) retornado no token está como "account", mesmo quando o client correto (frontend-client) está sendo usado no front-end.
+
+Isso faz com que a verificação padrão de audience no back-end falhe.
+
+Atualmente, o código usa azp (Authorized Party) para contornar temporariamente essa limitação:
+
+if payload.get("azp") != EXPECTED_AUDIENCE:
+    return jsonify({'error': 'ClientId não autorizado'}), 401
